@@ -53,9 +53,10 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 
 #pragma mark -
 
-- (BOOL)validateResponse:(NSHTTPURLResponse *)response
-                    data:(NSData *)data
-                   error:(NSError *__autoreleasing *)error
+- (BOOL)validateRequest:(NSURLRequest *)request
+               response:(NSHTTPURLResponse *)response
+                   data:(NSData *)data
+                  error:(NSError *__autoreleasing *)error
 {
     if (response && [response isKindOfClass:[NSHTTPURLResponse class]]) {
         if (self.acceptableStatusCodes && ![self.acceptableStatusCodes containsIndex:(NSUInteger)response.statusCode]) {
@@ -67,7 +68,7 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
             if (error) {
                 *error = [[NSError alloc] initWithDomain:AFNetworkingErrorDomain code:NSURLErrorBadServerResponse userInfo:userInfo];
             }
-
+            
             return NO;
         } else if (self.acceptableContentTypes && ![self.acceptableContentTypes containsObject:[response MIMEType]]) {
             // Don't invalidate content type if there is no content
@@ -80,24 +81,38 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
                 if (error) {
                     *error = [[NSError alloc] initWithDomain:AFNetworkingErrorDomain code:NSURLErrorCannotDecodeContentData userInfo:userInfo];
                 }
-
+                
                 return NO;
             }
         }
     }
-
+    
     return YES;
 }
 
+- (BOOL)validateResponse:(NSHTTPURLResponse *)response
+                    data:(NSData *)data
+                   error:(NSError *__autoreleasing *)error
+{
+    return [self validateRequest:nil response:response data:data error:error];
+}
+
 #pragma mark - AFURLResponseSerialization
+
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
+{
+    [self validateRequest:request response:(NSHTTPURLResponse *)response data:data error:error];
+    return data;
+}
 
 - (id)responseObjectForResponse:(NSURLResponse *)response
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error
 {
-    [self validateResponse:(NSHTTPURLResponse *)response data:data error:error];
-
-    return data;
+    return [self responseObjectForRequest:nil response:response data:data error:error];
 }
 
 #pragma mark - NSCoding
@@ -159,9 +174,10 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 
 #pragma mark - AFURLRequestSerialization
 
-- (id)responseObjectForResponse:(NSURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
@@ -257,16 +273,17 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 
 #pragma mark - AFURLResponseSerialization
 
-- (id)responseObjectForResponse:(NSHTTPURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
             return nil;
         }
     }
-
+    
     return [[NSXMLParser alloc] initWithData:data];
 }
 
@@ -302,16 +319,17 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 
 #pragma mark - AFURLResponseSerialization
 
-- (id)responseObjectForResponse:(NSURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
             return nil;
         }
     }
-
+    
     return [[NSXMLDocument alloc] initWithData:data options:self.options error:error];
 }
 
@@ -388,21 +406,22 @@ extern NSString * const AFNetworkingOperationFailingURLResponseErrorKey;
 
 #pragma mark - AFURLResponseSerialization
 
-- (id)responseObjectForResponse:(NSURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
             return nil;
         }
     }
-
+    
     id responseObject;
     if (data) {
         responseObject = [NSPropertyListSerialization propertyListWithData:data options:self.readOptions format:NULL error:error];
     }
-
+    
     return responseObject;
 }
 
@@ -560,16 +579,17 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
 
 #pragma mark - AFURLResponseSerializer
 
-- (id)responseObjectForResponse:(NSURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     if (![self validateResponse:(NSHTTPURLResponse *)response data:data error:error]) {
         if ([(NSError *)(*error) code] == NSURLErrorCannotDecodeContentData) {
             return nil;
         }
     }
-
+    
 #if defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
     if (self.automaticallyInflatesResponseImage) {
         return AFInflatedImageFromResponseWithDataAtScale((NSHTTPURLResponse *)response, data, self.imageScale);
@@ -581,10 +601,10 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
     NSBitmapImageRep *bitimage = [[NSBitmapImageRep alloc] initWithData:data];
     NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize([bitimage pixelsWide], [bitimage pixelsHigh])];
     [image addRepresentation:bitimage];
-
+    
     return image;
 #endif
-
+    
     return nil;
 }
 
@@ -645,15 +665,16 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
 
 #pragma mark - AFURLResponseSerialization
 
-- (id)responseObjectForResponse:(NSURLResponse *)response
-                           data:(NSData *)data
-                          error:(NSError *__autoreleasing *)error
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error
 {
     for (id <AFURLResponseSerialization> serializer in self.responseSerializers) {
         if (![serializer isKindOfClass:[AFHTTPResponseSerializer class]]) {
             continue;
         }
-
+        
         NSError *serializerError = nil;
         id responseObject = [serializer responseObjectForResponse:response data:data error:&serializerError];
         if (responseObject) {
@@ -662,7 +683,7 @@ static UIImage * AFInflatedImageFromResponseWithDataAtScale(NSHTTPURLResponse *r
         }
     }
     
-    return [super responseObjectForResponse:response data:data error:error];
+    return [super responseObjectForRequest:request response:response data:data error:error];
 }
 
 #pragma mark - NSCoding

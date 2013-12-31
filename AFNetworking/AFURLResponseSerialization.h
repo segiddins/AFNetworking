@@ -43,6 +43,25 @@
                            data:(NSData *)data
                           error:(NSError *__autoreleasing *)error;
 
+@optional
+
+/**
+ The response object decoded from the data associated with a specified response.
+ 
+ This method is queried before `responseObjectForResponse:data:error:` if it is implemented
+ 
+ @param request The request the led to the response.
+ @param response The response to be processed.
+ @param data The response data to be decoded.
+ @param error The error that occurred while attempting to decode the response data.
+ 
+ @return The object decoded from the specified response data.
+ */
+- (id)responseObjectForRequest:(NSURLRequest *)request
+                      response:(NSURLResponse *)response
+                          data:(NSData *)data
+                         error:(NSError *__autoreleasing *)error;
+
 @end
 
 #pragma mark -
@@ -94,6 +113,23 @@
 - (BOOL)validateResponse:(NSHTTPURLResponse *)response
                     data:(NSData *)data
                    error:(NSError *__autoreleasing *)error;
+
+/**
+ Validates the specified response and data.
+ 
+ In its base implementation, this method checks for an acceptable status code and content type. Subclasses may wish to add other domain-specific checks.
+ 
+ @param request The request the led to the response.
+ @param response The response to be validated.
+ @param data The data associated with the response.
+ @param error The error that occurred while attempting to validate the response.
+ 
+ @return `YES` if the response is valid, otherwise `NO`.
+ */
+- (BOOL)validateRequest:(NSURLRequest *)request
+               response:(NSHTTPURLResponse *)response
+                   data:(NSData *)data
+                  error:(NSError *__autoreleasing *)error;
 
 @end
 

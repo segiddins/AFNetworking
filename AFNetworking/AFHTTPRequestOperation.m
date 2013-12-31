@@ -80,7 +80,11 @@ static dispatch_group_t http_request_operation_completion_group() {
     [self.lock lock];
     if (!_responseObject && [self isFinished] && !self.error) {
         NSError *error = nil;
-        self.responseObject = [self.responseSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        if ([self.responseSerializer respondsToSelector:@selector(responseObjectForRequest:response:data:error:)]) {
+            self.responseObject = [self.responseSerializer responseObjectForRequest:self.request response:self.response data:self.responseData error:&error];
+        } else {
+            self.responseObject = [self.responseSerializer responseObjectForResponse:self.response data:self.responseData error:&error];
+        }
         if (error) {
             self.responseSerializationError = error;
         }
